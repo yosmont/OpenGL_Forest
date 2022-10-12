@@ -277,7 +277,8 @@ void main()
 
     m_UBOData = GL_CALL_REINTERPRET_CAST_RETURN_VALUE(glm::mat4*, glMapNamedBufferRange, m_UBO, 0, sizeof(glm::mat4), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
 
-    LoadObjFile("res/desert.obj");
+    LoadObjFile("../../res/desert.obj");
+    LoadObjFile("../../res/palm.obj");
 
     return true;
 }
