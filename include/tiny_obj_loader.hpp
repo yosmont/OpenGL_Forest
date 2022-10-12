@@ -60,8 +60,7 @@ THE SOFTWARE.
 #ifndef TINY_OBJ_LOADER_H_
 #define TINY_OBJ_LOADER_H_
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#define TINYOBJLOADER_USE_MAPBOX_EARCUT
+
 
 #include <map>
 #include <string>

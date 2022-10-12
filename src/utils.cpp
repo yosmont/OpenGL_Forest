@@ -1,3 +1,10 @@
+#ifndef TINYOBJLOADER_DEFINE_FLAGS
+#define TINYOBJLOADER_DEFINE_FLAGS
+#define TINYOBJLOADER_IMPLEMENTATION
+#define TINYOBJLOADER_USE_MAPBOX_EARCUT
+#endif // !TINYOBJLOADER_DEFINE_FLAGS
+
+
 #include <utils.hpp>
 #include <Windows.h>
 
@@ -54,7 +61,7 @@ void DisplayLastWinAPIError()
     }
 }
 
-tinyobj::ObjReader LoadObjFile(std::string inputFile, tinyobj::ObjReaderConfig readerConfig = tinyobj::ObjReaderConfig())
+tinyobj::ObjReader LoadObjFile(std::string inputFile, tinyobj::ObjReaderConfig readerConfig)
 {
     tinyobj::ObjReader reader;
     if (!reader.ParseFromFile(inputFile, readerConfig)) {
