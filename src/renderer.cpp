@@ -155,7 +155,7 @@ bool Renderer::Initialize()
     std::cout << "palm number of indices: " << palm.GetShapes()[0].mesh.indices.size() << std::endl;
     std::vector<int> palmVIndices(palm.GetShapes()[0].mesh.indices.size());
     for (auto i = palm.GetShapes()[0].mesh.indices.begin(); i != palm.GetShapes()[0].mesh.indices.end(); ++i) {
-        std::cout << i->vertex_index << std::endl;
+        //std::cout << i->vertex_index << std::endl;
         palmVIndices.push_back(i->vertex_index);
     }
 
