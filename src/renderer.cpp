@@ -143,8 +143,8 @@ bool Renderer::Initialize()
 
     GenerateSphereMesh(vertices, indices, sphereStackCount, sphereSectorCount, glm::vec3(0.0f), 1.0f);
 
-   /* tinyobj::ObjReader desert = LoadObjFile("../../res/desert.obj");
-    std::cout << "desert load" << std::endl;
+    //tinyobj::ObjReader palm = LoadObjFile("../../res/desert.obj");
+    /*std::cout << "desert load" << std::endl;
     std::cout << "desert shape nb: " << desert.GetShapes().size() << std::endl;
     std::cout << "desert number of vertices: " << desert.GetAttrib().GetVertices().size() << std::endl;
     std::cout << "desert number of indices: " << desert.GetShapes()[0].mesh.indices.size() << std::endl;*/
@@ -153,11 +153,12 @@ bool Renderer::Initialize()
     std::cout << "palm number of shape: " << palm.GetShapes().size() << std::endl;
     std::cout << "palm number of vertices: " << palm.GetAttrib().GetVertices().size() << std::endl;
     std::cout << "palm number of indices: " << palm.GetShapes()[0].mesh.indices.size() << std::endl;
-    std::vector<int> palmVIndices(palm.GetShapes()[0].mesh.indices.size());
+    std::vector<int> palmVIndices;
     for (auto i = palm.GetShapes()[0].mesh.indices.begin(); i != palm.GetShapes()[0].mesh.indices.end(); ++i) {
         //std::cout << i->vertex_index << std::endl;
         palmVIndices.push_back(i->vertex_index);
     }
+    std::cout << "palmVIndices size: " << palmVIndices.size() << std::endl;
 
     GL_CALL(glCreateBuffers, 1, &m_UBO);
     GL_CALL(glNamedBufferStorage, m_UBO, sizeof(glm::mat4), glm::value_ptr(m_Camera->GetViewProjectionMatrix()), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
