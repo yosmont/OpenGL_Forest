@@ -76,4 +76,10 @@ tinyobj::ObjReader LoadObjFile(std::string inputFile, tinyobj::ObjReaderConfig r
     return reader;
 }
 
+std::vector<glm::vec4> LoadTransfoFile(std::string inputFile)
+{
+    std::vector<glm::vec4> ret;
+    return ret;
+}
+
 END_VISUALIZER_NAMESPACE

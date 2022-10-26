@@ -138,10 +138,10 @@ bool Renderer::Initialize()
 
     m_IndexCount = indexCount;
 
-    std::vector<VertexDataPosition3fColor3f> vertices(vertexCount);
-    std::vector<uint16_t> indices(indexCount);
+    std::vector<VertexDataPosition3fColor3f> oldVertices(vertexCount);
+    std::vector<uint16_t> oldIndices(indexCount);
 
-    GenerateSphereMesh(vertices, indices, sphereStackCount, sphereSectorCount, glm::vec3(0.0f), 1.0f);
+    GenerateSphereMesh(oldVertices, oldIndices, sphereStackCount, sphereSectorCount, glm::vec3(0.0f), 1.0f);
 
     //tinyobj::ObjReader palm = LoadObjFile("../../res/desert.obj");
     /*std::cout << "desert load" << std::endl;
@@ -153,23 +153,40 @@ bool Renderer::Initialize()
     std::cout << "palm number of shape: " << palm.GetShapes().size() << std::endl;
     std::cout << "palm number of vertices: " << palm.GetAttrib().GetVertices().size() << std::endl;
     std::cout << "palm number of indices: " << palm.GetShapes()[0].mesh.indices.size() << std::endl;
-    std::vector<int> palmVIndices;
-    for (auto i = palm.GetShapes()[0].mesh.indices.begin(); i != palm.GetShapes()[0].mesh.indices.end(); ++i) {
-        //std::cout << i->vertex_index << std::endl;
-        palmVIndices.push_back(i->vertex_index);
-    }
-    std::cout << "palmVIndices size: " << palmVIndices.size() << std::endl;
+    std::vector<VertexDataPosition3fColor3f> vertices;
+    std::vector<int> indices;
+    for (std::vector<tinyobj::index_t>::const_iterator i = palm.GetShapes()[0].mesh.indices.begin(); i != palm.GetShapes()[0].mesh.indices.end(); ++i)
+        indices.push_back(i->vertex_index);
+    std::srand(std::time(nullptr));
+    for (std::vector<tinyobj::real_t>::const_iterator v = palm.GetAttrib().GetVertices().begin(); v != palm.GetAttrib().GetVertices().end(); v += 3)
+        vertices.push_back(VertexDataPosition3fColor3f {
+            glm::vec3 {
+                *v,
+                *(v + 1),
+                *(v + 2)
+            }, glm::vec3 {
+                /*((float)(std::rand() % 255) / 255),
+                ((float)(std::rand() % 255) / 255),
+                ((float)(std::rand() % 255) / 255)*/
+                0.24,
+                0.18,
+                0.01
+            }
+        });
+    std::cout << "indeces size: " << indices.size() << std::endl;
+    std::cout << "vertices size: " << vertices.size() << std::endl;
 
     GL_CALL(glCreateBuffers, 1, &m_UBO);
     GL_CALL(glNamedBufferStorage, m_UBO, sizeof(glm::mat4), glm::value_ptr(m_Camera->GetViewProjectionMatrix()), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
 
     GL_CALL(glCreateBuffers, 1, &m_VBO);
     //GL_CALL(glNamedBufferStorage, m_VBO, sizeof(VertexDataPosition3fColor3f) * vertexCount, vertices.data(), 0);
-    GL_CALL(glNamedBufferStorage, m_VBO, sizeof(tinyobj::real_t) * palm.GetAttrib().GetVertices().size(), palm.GetAttrib().GetVertices().data(), 0);
+    //GL_CALL(glNamedBufferStorage, m_VBO, sizeof(tinyobj::real_t) * palm.GetAttrib().GetVertices().size(), palm.GetAttrib().GetVertices().data(), 0);
+    GL_CALL(glNamedBufferStorage, m_VBO, sizeof(VertexDataPosition3fColor3f) * vertices.size(), vertices.data(), 0);
 
     GL_CALL(glCreateBuffers, 1, &m_IBO);
     //GL_CALL(glNamedBufferStorage, m_IBO, sizeof(uint16_t) * indexCount, indices.data(), 0);
-    GL_CALL(glNamedBufferStorage, m_IBO, sizeof(int) * palmVIndices.size(), palmVIndices.data(), 0);
+    GL_CALL(glNamedBufferStorage, m_IBO, sizeof(int) * indices.size(), indices.data(), 0);
 
     GL_CALL(glCreateVertexArrays, 1, &m_VAO);
     GL_CALL(glBindVertexArray, m_VAO);
@@ -177,16 +194,16 @@ bool Renderer::Initialize()
     GL_CALL(glBindBuffer, GL_ARRAY_BUFFER, m_VBO);
     GL_CALL(glBindBuffer, GL_ELEMENT_ARRAY_BUFFER, m_IBO);
 
-    /*GL_CALL(glEnableVertexAttribArray, 0);
+    GL_CALL(glEnableVertexAttribArray, 0);
     GL_CALL(glVertexAttribPointer, 0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexDataPosition3fColor3f), nullptr);
     GL_CALL(glEnableVertexAttribArray, 1);
-    GL_CALL(glVertexAttribPointer, 1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexDataPosition3fColor3f), reinterpret_cast<GLvoid*>(sizeof(glm::vec3)));*/
-    GL_CALL(glEnableVertexAttribArray, 0);
+    GL_CALL(glVertexAttribPointer, 1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexDataPosition3fColor3f), reinterpret_cast<GLvoid*>(sizeof(glm::vec3)));
+    /*GL_CALL(glEnableVertexAttribArray, 0);
     GL_CALL(glVertexAttribPointer, 0, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, nullptr);
     GL_CALL(glEnableVertexAttribArray, 1);
     GL_CALL(glVertexAttribPointer, 1, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, reinterpret_cast<GLvoid*>(sizeof(tinyobj::real_t)));
     GL_CALL(glEnableVertexAttribArray, 2);
-    GL_CALL(glVertexAttribPointer, 2, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, reinterpret_cast<GLvoid*>(sizeof(tinyobj::real_t) * 2));
+    GL_CALL(glVertexAttribPointer, 2, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, reinterpret_cast<GLvoid*>(sizeof(tinyobj::real_t) * 2));*/
 
     GL_CALL(glBindVertexArray, 0);
 
@@ -208,9 +225,8 @@ bool Renderer::Initialize()
         char const* const vertexShader =
 R"(#version 450 core
 
-layout(location = 0) in float posX;
-layout(location = 1) in float posY;
-layout(location = 2) in float posZ;
+layout(location = 0) in vec3 inWorldPos;
+layout(location = 1) in vec3 inColor;
 
 layout(location = 0) smooth out vec3 color;
 
@@ -221,8 +237,8 @@ layout(std140, binding = 0) uniform Matrix
 
 void main()
 {
-    color = vec3(220, 220, 220);
-    gl_Position = modelViewProjection*vec4(posX, posY, posZ, 1.);
+    color = inColor;
+    gl_Position = modelViewProjection*vec4(inWorldPos, 1.);
 }
 )";
 
