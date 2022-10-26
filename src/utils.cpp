@@ -7,6 +7,7 @@
 
 #include <utils.hpp>
 #include <Windows.h>
+#include <fstream>
 
 BEGIN_VISUALIZER_NAMESPACE
 
@@ -79,6 +80,17 @@ tinyobj::ObjReader LoadObjFile(std::string inputFile, tinyobj::ObjReaderConfig r
 std::vector<glm::vec4> LoadTransfoFile(std::string inputFile)
 {
     std::vector<glm::vec4> ret;
+    std::fstream file(inputFile);
+    int lineCount;
+    file >> lineCount;
+    float x, y, z, w;
+    for (int i = 0; i < lineCount && (file >> x >> y >> z >> w); ++i)
+        ret.push_back(glm::vec4{
+            x,
+            y,
+            z,
+            w
+        });
     return ret;
 }
 
