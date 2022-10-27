@@ -5,6 +5,12 @@ BEGIN_VISUALIZER_NAMESPACE
 
 class Camera;
 
+struct VertexDataPosition3fColor3f
+{
+    glm::vec3 position;
+    glm::vec3 color;
+};
+
 class Renderer
 {
 public:
@@ -30,9 +36,12 @@ public:
     void UpdateCamera();
 
 private:
-    GLuint m_UBO, m_VBO, m_IBO, m_VAO, m_ShaderProgram;
+    /*void LoadDesert(std::vector<int>& indices, std::vector<VertexDataPosition3fColor3f>& vertices);
+    void LoadPalm(std::vector<int>& indices, std::vector<VertexDataPosition3fColor3f>& vertices);*/
 
-    uint32_t m_IndexCount;
+    GLuint m_UBO, m_VBO[2], m_IBO[2], m_VAO[2], m_ShaderProgram;
+
+    uint32_t m_IndexCount[2];
 
     glm::mat4* m_UBOData;
 

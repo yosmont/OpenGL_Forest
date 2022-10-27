@@ -10,14 +10,71 @@
 #include <glutils.hpp>
 #include <camera.hpp>
 #include <renderer.hpp>
+#include <thread>
+#include <future>
 
 BEGIN_VISUALIZER_NAMESPACE
 
-struct VertexDataPosition3fColor3f
-{
-    glm::vec3 position;
-    glm::vec3 color;
-};
+void LoadDesert(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f> *vertices) {
+    //load obj:
+    tinyobj::ObjReader desert = LoadObjFile("../../res/desert.obj");
+    std::cout << "desert load" << std::endl;
+    std::cout << "desert shape nb: " << desert.GetShapes().size() << std::endl;
+    std::cout << "desert number of vertices: " << desert.GetAttrib().GetVertices().size() << std::endl;
+    std::cout << "desert number of indices: " << desert.GetShapes()[0].mesh.indices.size() << std::endl;
+    //init buffer:
+    for (std::vector<tinyobj::index_t>::const_iterator i = desert.GetShapes()[0].mesh.indices.begin(); i != desert.GetShapes()[0].mesh.indices.end(); ++i)
+        indices->push_back(i->vertex_index);
+    for (std::vector<tinyobj::real_t>::const_iterator v = desert.GetAttrib().GetVertices().begin(); v != desert.GetAttrib().GetVertices().end(); v += 3)
+        vertices->push_back(VertexDataPosition3fColor3f{
+            glm::vec3 {
+                *v,
+                *(v + 1),
+                *(v + 2)
+            }, glm::vec3 {
+                0.31,
+                0.34,
+                0.04
+            }
+            });
+}
+
+void LoadPalm(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f> *vertices) {
+    //load transfoPalm:
+    std::future<std::vector<glm::vec4>> loader = std::async(LoadTransfoFile, "../../res/palmTransfo.txt");
+    //load obj:
+    tinyobj::ObjReader palm = LoadObjFile("../../res/palm.obj");
+    int palmVSize = palm.GetAttrib().GetVertices().size();
+    std::cout << "palm load" << std::endl;
+    std::cout << "palm number of shape: " << palm.GetShapes().size() << std::endl;
+    std::cout << "palm number of vertices: " << palmVSize << std::endl;
+    std::cout << "palm number of indices: " << palm.GetShapes()[0].mesh.indices.size() << std::endl;
+    //init buffer:
+    std::vector<glm::vec4> transfoPalm = loader.get();
+    std::cout << "transfoPalm size: " << transfoPalm.size() << std::endl;
+    int j = 0;
+    //std::srand(std::time(nullptr));
+    for (std::vector<glm::vec4>::const_iterator t = transfoPalm.begin(); t != transfoPalm.end(); ++t) {
+        for (std::vector<tinyobj::index_t>::const_iterator i = palm.GetShapes()[0].mesh.indices.begin(); i != palm.GetShapes()[0].mesh.indices.end(); ++i)
+            indices->push_back(i->vertex_index + (palmVSize * j));
+        for (std::vector<tinyobj::real_t>::const_iterator v = palm.GetAttrib().GetVertices().begin(); v != palm.GetAttrib().GetVertices().end(); v += 3)
+            vertices->push_back(VertexDataPosition3fColor3f{
+                glm::vec3 {
+                    *v + t->x,
+                    *(v + 1) + t->y,
+                    *(v + 2) + t->z
+                }, glm::vec3 {
+                    /*((float)(std::rand() % 255) / 255),
+                    ((float)(std::rand() % 255) / 255),
+                    ((float)(std::rand() % 255) / 255)*/
+                    0.24,
+                    0.18,
+                    0.01
+                }
+                });
+        ++j;
+    }
+}
 
 void GenerateSphereMesh(std::vector<VertexDataPosition3fColor3f>& vertices, std::vector<uint16_t>& indices, uint16_t sphereStackCount, uint16_t sphereSectorCount, glm::vec3 sphereCenter, float sphereRadius)
 {
@@ -143,100 +200,57 @@ bool Renderer::Initialize()
 
     GenerateSphereMesh(oldVertices, oldIndices, sphereStackCount, sphereSectorCount, glm::vec3(0.0f), 1.0f);*/
 
-    tinyobj::ObjReader desert = LoadObjFile("../../res/desert.obj");
-    int desertVSize = desert.GetAttrib().GetVertices().size();
-    std::cout << "desert load" << std::endl;
-    std::cout << "desert shape nb: " << desert.GetShapes().size() << std::endl;
-    std::cout << "desert number of vertices: " << desertVSize << std::endl;
-    std::cout << "desert number of indices: " << desert.GetShapes()[0].mesh.indices.size() << std::endl;
-    std::vector<glm::vec4> transfoPalm = LoadTransfoFile("../../res/palmTransfo.txt");
-    tinyobj::ObjReader palm = LoadObjFile("../../res/palm.obj");
-    int palmVSize = palm.GetAttrib().GetVertices().size();
-    std::cout << "palm load" << std::endl;
-    std::cout << "palm number of shape: " << palm.GetShapes().size() << std::endl;
-    std::cout << "palm number of vertices: " << palmVSize << std::endl;
-    std::cout << "palm number of indices: " << palm.GetShapes()[0].mesh.indices.size() << std::endl;
-    std::vector<VertexDataPosition3fColor3f> vertices;
-    std::vector<int> indices;
+    
+    
     //adding the desert to the buffer
-    for (std::vector<tinyobj::index_t>::const_iterator i = desert.GetShapes()[0].mesh.indices.begin(); i != desert.GetShapes()[0].mesh.indices.end(); ++i)
-        indices.push_back(i->vertex_index);
-    for (std::vector<tinyobj::real_t>::const_iterator v = desert.GetAttrib().GetVertices().begin(); v != desert.GetAttrib().GetVertices().end(); v += 3)
-        vertices.push_back(VertexDataPosition3fColor3f{
-            glm::vec3 {
-                *v,
-                *(v + 1),
-                *(v + 2)
-            }, glm::vec3 {
-                0.31,
-                0.34,
-                0.04
-            }
-        });
+    std::vector<VertexDataPosition3fColor3f> vertices[2] = { std::vector<VertexDataPosition3fColor3f>(), std::vector<VertexDataPosition3fColor3f>()};
+    std::vector<int> indices[2] = { std::vector<int>(), std::vector<int>() };
+    std::future<void> loader[2];
+    loader[0] = std::async(LoadDesert, &(indices[0]), &(vertices[0]));
     //adding all the palm to the buffer
-    std::cout << "transfoPalm size: " << transfoPalm.size() << std::endl;
-    int j = 0;
-    //std::srand(std::time(nullptr));
-    for (std::vector<glm::vec4>::const_iterator t = transfoPalm.begin(); t != transfoPalm.end(); ++t) {
-        for (std::vector<tinyobj::index_t>::const_iterator i = palm.GetShapes()[0].mesh.indices.begin(); i != palm.GetShapes()[0].mesh.indices.end(); ++i)
-            indices.push_back(i->vertex_index + desertVSize + (palmVSize * j));
-        for (std::vector<tinyobj::real_t>::const_iterator v = palm.GetAttrib().GetVertices().begin(); v != palm.GetAttrib().GetVertices().end(); v += 3)
-            vertices.push_back(VertexDataPosition3fColor3f{
-                glm::vec3 {
-                    *v + t->x,
-                    *(v + 1) + t->y,
-                    *(v + 2) + t->z
-                }, glm::vec3 {
-                    /*((float)(std::rand() % 255) / 255),
-                    ((float)(std::rand() % 255) / 255),
-                    ((float)(std::rand() % 255) / 255)*/
-                    0.24,
-                    0.18,
-                    0.01
-                }
-            });
-        ++j;
-    }
-    std::cout << "indices size: " << indices.size() << std::endl;
-    std::cout << "vertices size: " << vertices.size() << std::endl;
-    m_IndexCount = indices.size();
+    loader[1] = std::async(LoadPalm, &(indices[1]), &(vertices[1]));
+    loader[0].wait();
+    loader[1].wait();
 
     GL_CALL(glCreateBuffers, 1, &m_UBO);
     GL_CALL(glNamedBufferStorage, m_UBO, sizeof(glm::mat4), glm::value_ptr(m_Camera->GetViewProjectionMatrix()), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
 
-    GL_CALL(glCreateBuffers, 1, &m_IBO);
-    //GL_CALL(glNamedBufferStorage, m_IBO, sizeof(uint16_t) * indexCount, indices.data(), 0);
-    GL_CALL(glNamedBufferStorage, m_IBO, sizeof(int) * indices.size(), indices.data(), 0);
+    GL_CALL(glCreateBuffers, 2, m_IBO);
+    GL_CALL(glCreateBuffers, 2, m_VBO);
+    for (int i = 0; i < 2; ++i) {
+        std::cout << "indices[" << i << "] size: " << indices[i].size() << std::endl;
+        std::cout << "vertices[" << i << "] size: " << vertices[i].size() << std::endl;
+        m_IndexCount[i] = indices[i].size();
+        GL_CALL(glNamedBufferStorage, m_IBO[i], sizeof(int) * indices[i].size(), indices[i].data(), 0);
+        GL_CALL(glNamedBufferStorage, m_VBO[i], sizeof(VertexDataPosition3fColor3f) * vertices[i].size(), vertices[i].data(), 0);
+    }
 
-    GL_CALL(glCreateBuffers, 1, &m_VBO);
-    //GL_CALL(glNamedBufferStorage, m_VBO, sizeof(VertexDataPosition3fColor3f) * vertexCount, vertices.data(), 0);
-    //GL_CALL(glNamedBufferStorage, m_VBO, sizeof(tinyobj::real_t) * palm.GetAttrib().GetVertices().size(), palm.GetAttrib().GetVertices().data(), 0);
-    GL_CALL(glNamedBufferStorage, m_VBO, sizeof(VertexDataPosition3fColor3f) * vertices.size(), vertices.data(), 0);
+    GL_CALL(glCreateVertexArrays, 2, m_VAO);
+    for (int i = 0; i < 2; ++i) {
+        GL_CALL(glBindVertexArray, m_VAO[i]);
 
-    GL_CALL(glCreateVertexArrays, 1, &m_VAO);
-    GL_CALL(glBindVertexArray, m_VAO);
+        GL_CALL(glBindBuffer, GL_ARRAY_BUFFER, m_VBO[i]);
+        GL_CALL(glBindBuffer, GL_ELEMENT_ARRAY_BUFFER, m_IBO[i]);
 
-    GL_CALL(glBindBuffer, GL_ARRAY_BUFFER, m_VBO);
-    GL_CALL(glBindBuffer, GL_ELEMENT_ARRAY_BUFFER, m_IBO);
+        GL_CALL(glEnableVertexAttribArray, 0);
+        GL_CALL(glVertexAttribPointer, 0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexDataPosition3fColor3f), nullptr);
+        GL_CALL(glEnableVertexAttribArray, 1);
+        GL_CALL(glVertexAttribPointer, 1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexDataPosition3fColor3f), reinterpret_cast<GLvoid*>(sizeof(glm::vec3)));
+        /*GL_CALL(glEnableVertexAttribArray, 0);
+        GL_CALL(glVertexAttribPointer, 0, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, nullptr);
+        GL_CALL(glEnableVertexAttribArray, 1);
+        GL_CALL(glVertexAttribPointer, 1, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, reinterpret_cast<GLvoid*>(sizeof(tinyobj::real_t)));
+        GL_CALL(glEnableVertexAttribArray, 2);
+        GL_CALL(glVertexAttribPointer, 2, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, reinterpret_cast<GLvoid*>(sizeof(tinyobj::real_t) * 2));*/
 
-    GL_CALL(glEnableVertexAttribArray, 0);
-    GL_CALL(glVertexAttribPointer, 0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexDataPosition3fColor3f), nullptr);
-    GL_CALL(glEnableVertexAttribArray, 1);
-    GL_CALL(glVertexAttribPointer, 1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexDataPosition3fColor3f), reinterpret_cast<GLvoid*>(sizeof(glm::vec3)));
-    /*GL_CALL(glEnableVertexAttribArray, 0);
-    GL_CALL(glVertexAttribPointer, 0, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, nullptr);
-    GL_CALL(glEnableVertexAttribArray, 1);
-    GL_CALL(glVertexAttribPointer, 1, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, reinterpret_cast<GLvoid*>(sizeof(tinyobj::real_t)));
-    GL_CALL(glEnableVertexAttribArray, 2);
-    GL_CALL(glVertexAttribPointer, 2, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, reinterpret_cast<GLvoid*>(sizeof(tinyobj::real_t) * 2));*/
+        GL_CALL(glBindVertexArray, 0);
 
-    GL_CALL(glBindVertexArray, 0);
+        GL_CALL(glBindBuffer, GL_ARRAY_BUFFER, 0);
+        GL_CALL(glBindBuffer, GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    GL_CALL(glBindBuffer, GL_ARRAY_BUFFER, 0);
-    GL_CALL(glBindBuffer, GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    GL_CALL(glDisableVertexAttribArray, 0);
-    GL_CALL(glDisableVertexAttribArray, 1);
+        GL_CALL(glDisableVertexAttribArray, 0);
+        GL_CALL(glDisableVertexAttribArray, 1);
+    }
 
     GLuint vShader = GL_CALL(glCreateShader, GL_VERTEX_SHADER);
     GLuint fShader = GL_CALL(glCreateShader, GL_FRAGMENT_SHADER);
@@ -354,9 +368,11 @@ void Renderer::Render()
     GL_CALL(glUseProgram, m_ShaderProgram);
 
     GL_CALL(glBindBufferBase, GL_UNIFORM_BUFFER, 0, m_UBO);
-    GL_CALL(glBindVertexArray, m_VAO);
-    GL_CALL(glDrawElements, GL_TRIANGLES, m_IndexCount, GL_UNSIGNED_INT, nullptr);
-    GL_CALL(glBindVertexArray, 0);
+    for (int i = 0; i < 2; ++i) {
+        GL_CALL(glBindVertexArray, m_VAO[i]);
+        GL_CALL(glDrawElements, GL_TRIANGLES, m_IndexCount[i], GL_UNSIGNED_INT, nullptr);
+        GL_CALL(glBindVertexArray, 0);
+    }
     GL_CALL(glBindBufferBase, GL_UNIFORM_BUFFER, 0, 0);
 
     GL_CALL(glUseProgram, 0);
@@ -368,11 +384,11 @@ void Renderer::Cleanup()
 
     GL_CALL(glUnmapNamedBuffer, m_UBO);
 
-    GL_CALL(glDeleteBuffers, 1, &m_VBO);
-    GL_CALL(glDeleteBuffers, 1, &m_IBO);
+    GL_CALL(glDeleteBuffers, 2, m_VBO);
+    GL_CALL(glDeleteBuffers, 2, m_IBO);
     GL_CALL(glDeleteBuffers, 1, &m_UBO);
 
-    GL_CALL(glDeleteVertexArrays, 1, &m_VAO);
+    GL_CALL(glDeleteVertexArrays, 2, m_VAO);
 
     GL_CALL(glDeleteProgram, m_ShaderProgram);
 
