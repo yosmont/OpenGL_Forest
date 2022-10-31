@@ -22,6 +22,9 @@ void LoadDesert(std::vector<int> *indices, std::vector<VertexDataPosition3fColor
     std::cout << "desert shape nb: " << desert.GetShapes().size() << std::endl;
     std::cout << "desert number of vertices: " << desert.GetAttrib().GetVertices().size() << std::endl;
     std::cout << "desert number of indices: " << desert.GetShapes()[0].mesh.indices.size() << std::endl;
+    std::cout << "desert number of colors: " << desert.GetAttrib().colors.size() << std::endl;
+    std::cout << "desert number of normals: " << desert.GetAttrib().normals.size() << std::endl;
+    std::cout << "desert number of texcoords: " << desert.GetAttrib().texcoords.size() << std::endl;
     //init buffer:
     for (std::vector<tinyobj::index_t>::const_iterator i = desert.GetShapes()[0].mesh.indices.begin(); i != desert.GetShapes()[0].mesh.indices.end(); ++i)
         indices->push_back(i->vertex_index);
@@ -49,6 +52,9 @@ void LoadPalm(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f
     std::cout << "palm number of shape: " << palm.GetShapes().size() << std::endl;
     std::cout << "palm number of vertices: " << palmVSize << std::endl;
     std::cout << "palm number of indices: " << palm.GetShapes()[0].mesh.indices.size() << std::endl;
+    std::cout << "palm number of colors: " << palm.GetAttrib().colors.size() << std::endl;
+    std::cout << "palm number of normals: " << palm.GetAttrib().normals.size() << std::endl;
+    std::cout << "palm number of texcoords: " << palm.GetAttrib().texcoords.size() << std::endl;
     //init buffer:
     std::vector<glm::vec4> transfoPalm = loader.get();
     std::cout << "transfoPalm size: " << transfoPalm.size() << std::endl;
@@ -57,21 +63,30 @@ void LoadPalm(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f
     for (std::vector<glm::vec4>::const_iterator t = transfoPalm.begin(); t != transfoPalm.end(); ++t) {
         for (std::vector<tinyobj::index_t>::const_iterator i = palm.GetShapes()[0].mesh.indices.begin(); i != palm.GetShapes()[0].mesh.indices.end(); ++i)
             indices->push_back(i->vertex_index + (palmVSize * j));
-        for (std::vector<tinyobj::real_t>::const_iterator v = palm.GetAttrib().GetVertices().begin(); v != palm.GetAttrib().GetVertices().end(); v += 3)
+        for (int i = 0; i < palmVSize; i += 3)
+            vertices->push_back(VertexDataPosition3fColor3f{
+                glm::vec3 {
+                    palm.GetAttrib().vertices[i] + t->x,
+                    palm.GetAttrib().vertices[i + 1] + t->y,
+                    palm.GetAttrib().vertices[i + 2] + t->z
+                }, glm::vec3 {
+                    0.24,
+                    0.18,
+                    0.01
+                }
+            });
+        /*for (std::vector<tinyobj::real_t>::const_iterator v = palm.GetAttrib().GetVertices().begin(); v != palm.GetAttrib().GetVertices().end(); v += 3)
             vertices->push_back(VertexDataPosition3fColor3f{
                 glm::vec3 {
                     *v + t->x,
                     *(v + 1) + t->y,
                     *(v + 2) + t->z
                 }, glm::vec3 {
-                    /*((float)(std::rand() % 255) / 255),
-                    ((float)(std::rand() % 255) / 255),
-                    ((float)(std::rand() % 255) / 255)*/
                     0.24,
                     0.18,
                     0.01
                 }
-                });
+                });*/
         ++j;
     }
 }
