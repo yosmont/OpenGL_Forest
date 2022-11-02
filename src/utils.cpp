@@ -5,6 +5,7 @@
 #endif // !TINYOBJLOADER_DEFINE_FLAGS
 
 
+
 #include <utils.hpp>
 #include <Windows.h>
 #include <fstream>

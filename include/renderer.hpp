@@ -11,6 +11,12 @@ struct VertexDataPosition3fColor3f
     glm::vec3 color;
 };
 
+struct SkyboxInfo
+{
+    glm::mat4 view;
+    glm::mat4 projection;
+};
+
 class Renderer
 {
 public:
@@ -36,14 +42,19 @@ public:
     void UpdateCamera();
 
 private:
-    /*void LoadDesert(std::vector<int>& indices, std::vector<VertexDataPosition3fColor3f>& vertices);
-    void LoadPalm(std::vector<int>& indices, std::vector<VertexDataPosition3fColor3f>& vertices);*/
+    void ShaderError(GLuint ID, std::string type);
+    void ShaderProgramError(GLuint ID);
+    GLuint InitShader(char const* const vertexSrc, char const* const fragmentSrc);
+    GLuint InitSkyboxShader();
+    GLuint InitDefaultShader();
 
-    GLuint m_UBO, m_VBO[2], m_IBO[2], m_VAO[2], m_ShaderProgram;
+    GLuint m_UBO, m_VBO[3], m_IBO[3], m_VAO[3], m_ShaderProgram[2], m_Texture;
 
     uint32_t m_IndexCount[2];
 
     glm::mat4* m_UBOData;
+
+    SkyboxInfo m_SkyboxInfo;
 
     std::shared_ptr<Camera> m_Camera;
     uint32_t m_ViewportWidth, m_ViewportHeight;

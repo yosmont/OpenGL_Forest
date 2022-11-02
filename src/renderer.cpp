@@ -1,3 +1,7 @@
+#ifndef STB_DEFINE_FLAGS
+#define STB_IMAGE_IMPLEMENTATION
+#endif // !STB_DEFINE_FLAGS
+
 #include <GL/glew.h>
 
 #pragma warning(push, 0)
@@ -13,7 +17,44 @@
 #include <thread>
 #include <future>
 
+#include "stb_image.hpp"
+
 BEGIN_VISUALIZER_NAMESPACE
+
+float skyboxVertices[] =
+{
+    //   Coordinates
+    -1.0f, -1.0f,  1.0f,//        7--------6
+     1.0f, -1.0f,  1.0f,//       /|       /|
+     1.0f, -1.0f, -1.0f,//      4--------5 |
+    -1.0f, -1.0f, -1.0f,//      | |      | |
+    -1.0f,  1.0f,  1.0f,//      | 3------|-2
+     1.0f,  1.0f,  1.0f,//      |/       |/
+     1.0f,  1.0f, -1.0f,//      0--------1
+    -1.0f,  1.0f, -1.0f
+};
+
+unsigned int skyboxIndices[] =
+{
+    // Right
+    1, 2, 6,
+    6, 5, 1,
+    // Left
+    0, 4, 7,
+    7, 3, 0,
+    // Top
+    4, 5, 6,
+    6, 7, 4,
+    // Bottom
+    0, 3, 2,
+    2, 1, 0,
+    // Back
+    0, 1, 5,
+    5, 4, 0,
+    // Front
+    3, 7, 6,
+    6, 2, 3
+};
 
 void LoadDesert(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f> *vertices) {
     //load obj:
@@ -200,6 +241,130 @@ void GenerateSphereMesh(std::vector<VertexDataPosition3fColor3f>& vertices, std:
     }
 }
 
+void Renderer::ShaderError(GLuint ID, std::string type)
+{
+    GLint length = 0;
+
+    GL_CALL(glGetShaderiv, ID, GL_INFO_LOG_LENGTH, &length);
+
+    if (length > 1)
+    {
+        std::string log(length, '\0');
+
+        GL_CALL(glGetShaderInfoLog, ID, length, nullptr, log.data());
+
+        std::cerr << type << " shader log:\n" << log << '\n';
+    }
+}
+
+void Renderer::ShaderProgramError(GLuint ID) 
+{
+    GLint length = 0;
+
+    GL_CALL(glGetProgramiv, ID, GL_INFO_LOG_LENGTH, &length);
+
+    if (length > 1)
+    {
+        std::string log(length, '\0');
+
+        GL_CALL(glGetProgramInfoLog, ID, length, nullptr, log.data());
+
+        std::cerr << "Shader program log:\n" << log << '\n';
+    }
+}
+
+GLuint Renderer::InitShader(char const* const vertexSrc, char const* const fragmentSrc)
+{
+    GLuint vertexShader = GL_CALL(glCreateShader, GL_VERTEX_SHADER);
+    GL_CALL(glShaderSource, vertexShader, 1, &vertexSrc, NULL);
+    GL_CALL(glCompileShader, vertexShader);
+    ShaderError(vertexShader, "Vertex");
+    GLuint fragmentShader = GL_CALL(glCreateShader, GL_FRAGMENT_SHADER);
+    GL_CALL(glShaderSource, fragmentShader, 1, &fragmentSrc, NULL);
+    GL_CALL(glCompileShader, fragmentShader);
+    ShaderError(fragmentShader, "Fragment");
+    GLuint progID = GL_CALL(glCreateProgram);
+    GL_CALL(glAttachShader, progID, vertexShader);
+    GL_CALL(glAttachShader, progID, fragmentShader);
+    GL_CALL(glLinkProgram, progID);
+    ShaderProgramError(progID);
+    GL_CALL(glDetachShader, progID, vertexShader);
+    GL_CALL(glDetachShader, progID, fragmentShader);
+    GL_CALL(glDeleteShader, vertexShader);
+    GL_CALL(glDeleteShader, fragmentShader);
+    return progID;
+}
+
+GLuint Renderer::InitSkyboxShader()
+{
+    char const* const vertexSource = R"(#version 330 core
+layout (location = 0) in vec3 aPos;
+
+out vec3 texCoords;
+
+uniform mat4 projection;
+uniform mat4 view;
+
+void main()
+{
+    vec4 pos = projection * view * vec4(aPos, 1.0f);
+    // Having z equal w will always result in a depth of 1.0f
+    gl_Position = vec4(pos.x, pos.y, pos.w, pos.w);
+    // We want to flip the z axis due to the different coordinate systems (left hand vs right hand)
+    texCoords = vec3(aPos.x, aPos.y, -aPos.z);
+})";
+    char const* const fragmentSource = R"(#version 330 core
+out vec4 FragColor;
+
+in vec3 texCoords;
+
+uniform samplerCube skybox;
+
+void main()
+{    
+    FragColor = texture(skybox, texCoords);
+})";
+
+    GLuint progID = InitShader(vertexSource, fragmentSource);
+    GL_CALL(glUseProgram, progID);
+    GLint location = GL_CALL(glGetUniformLocation, progID, "skybox");
+    GL_CALL(glUniform1i, location, 0);
+    GL_CALL(glUseProgram, 0);
+    return progID;
+}
+
+GLuint Renderer::InitDefaultShader()
+{
+    char const* const vertexSource = R"(#version 450 core
+
+layout(location = 0) in vec3 inWorldPos;
+layout(location = 1) in vec3 inColor;
+
+layout(location = 0) smooth out vec3 color;
+
+layout(std140, binding = 0) uniform Matrix
+{
+    mat4 modelViewProjection;
+};
+
+void main()
+{
+    color = inColor;
+    gl_Position = modelViewProjection*vec4(inWorldPos, 1.);
+})";
+    char const* const fragmentSource = R"(#version 450 core
+
+layout(location = 0) out vec4 outColor;
+
+layout(location = 0) smooth in vec3 color;
+
+void main()
+{
+    outColor = vec4(color, 1.0);
+})";
+    return InitShader(vertexSource, fragmentSource);
+}
+
 bool Renderer::Initialize()
 {
     /*constexpr uint16_t sphereStackCount = 63;
@@ -230,8 +395,8 @@ bool Renderer::Initialize()
     GL_CALL(glCreateBuffers, 1, &m_UBO);
     GL_CALL(glNamedBufferStorage, m_UBO, sizeof(glm::mat4), glm::value_ptr(m_Camera->GetViewProjectionMatrix()), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
 
-    GL_CALL(glCreateBuffers, 2, m_IBO);
-    GL_CALL(glCreateBuffers, 2, m_VBO);
+    GL_CALL(glCreateBuffers, 3, m_IBO);
+    GL_CALL(glCreateBuffers, 3, m_VBO);
     for (int i = 0; i < 2; ++i) {
         std::cout << "indices[" << i << "] size: " << indices[i].size() << std::endl;
         std::cout << "vertices[" << i << "] size: " << vertices[i].size() << std::endl;
@@ -240,7 +405,7 @@ bool Renderer::Initialize()
         GL_CALL(glNamedBufferStorage, m_VBO[i], sizeof(VertexDataPosition3fColor3f) * vertices[i].size(), vertices[i].data(), 0);
     }
 
-    GL_CALL(glCreateVertexArrays, 2, m_VAO);
+    GL_CALL(glCreateVertexArrays, 3, m_VAO);
     for (int i = 0; i < 2; ++i) {
         GL_CALL(glBindVertexArray, m_VAO[i]);
 
@@ -251,12 +416,6 @@ bool Renderer::Initialize()
         GL_CALL(glVertexAttribPointer, 0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexDataPosition3fColor3f), nullptr);
         GL_CALL(glEnableVertexAttribArray, 1);
         GL_CALL(glVertexAttribPointer, 1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexDataPosition3fColor3f), reinterpret_cast<GLvoid*>(sizeof(glm::vec3)));
-        /*GL_CALL(glEnableVertexAttribArray, 0);
-        GL_CALL(glVertexAttribPointer, 0, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, nullptr);
-        GL_CALL(glEnableVertexAttribArray, 1);
-        GL_CALL(glVertexAttribPointer, 1, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, reinterpret_cast<GLvoid*>(sizeof(tinyobj::real_t)));
-        GL_CALL(glEnableVertexAttribArray, 2);
-        GL_CALL(glVertexAttribPointer, 2, 1, GL_FLOAT, GL_FALSE, sizeof(tinyobj::real_t) * 3, reinterpret_cast<GLvoid*>(sizeof(tinyobj::real_t) * 2));*/
 
         GL_CALL(glBindVertexArray, 0);
 
@@ -267,111 +426,50 @@ bool Renderer::Initialize()
         GL_CALL(glDisableVertexAttribArray, 1);
     }
 
-    GLuint vShader = GL_CALL(glCreateShader, GL_VERTEX_SHADER);
-    GLuint fShader = GL_CALL(glCreateShader, GL_FRAGMENT_SHADER);
-
-    m_ShaderProgram = glCreateProgram();
-
-    GL_CALL(glAttachShader, m_ShaderProgram, vShader);
-    GL_CALL(glAttachShader, m_ShaderProgram, fShader);
-
-    {
-        char const* const vertexShader =
-R"(#version 450 core
-
-layout(location = 0) in vec3 inWorldPos;
-layout(location = 1) in vec3 inColor;
-
-layout(location = 0) smooth out vec3 color;
-
-layout(std140, binding = 0) uniform Matrix
-{
-    mat4 modelViewProjection;
-};
-
-void main()
-{
-    color = inColor;
-    gl_Position = modelViewProjection*vec4(inWorldPos, 1.);
-}
-)";
-
-        GL_CALL(glShaderSource, vShader, 1, &vertexShader, nullptr);
-
-        GL_CALL(glCompileShader, vShader);
-
-        {
-            GLint length = 0;
-
-            GL_CALL(glGetShaderiv, vShader, GL_INFO_LOG_LENGTH, &length);
-
-            if (length > 1)
-            {
-                std::string log(length, '\0');
-
-                GL_CALL(glGetShaderInfoLog, vShader, length, nullptr, log.data());
-
-                std::cerr << "Vertex shader log:\n" << log << '\n';
-            }
-        }
-
-        char const* const fragmentShader =
-R"(#version 450 core
-
-layout(location = 0) out vec4 outColor;
-
-layout(location = 0) smooth in vec3 color;
-
-void main()
-{
-    outColor = vec4(color, 1.0);
-}
-)";
-
-        GL_CALL(glShaderSource, fShader, 1, &fragmentShader, nullptr);
-
-        GL_CALL(glCompileShader, fShader);
-
-        {
-            GLint length = 0;
-
-            GL_CALL(glGetShaderiv, fShader, GL_INFO_LOG_LENGTH, &length);
-
-            if (length > 1)
-            {
-                std::string log(length, '\0');
-
-                GL_CALL(glGetShaderInfoLog, fShader, length, nullptr, log.data());
-
-                std::cerr << "Vertex shader log:\n" << log << '\n';
-            }
-        }
-    }
-
-    GL_CALL(glLinkProgram, m_ShaderProgram);
-
-    {
-        GLint length = 0;
-
-        GL_CALL(glGetProgramiv, m_ShaderProgram, GL_INFO_LOG_LENGTH, &length);
-
-        if (length > 1)
-        {
-            std::string log(length, '\0');
-
-            GL_CALL(glGetProgramInfoLog, m_ShaderProgram, length, nullptr, log.data());
-
-            std::cerr << "Shader program log:\n" << log << '\n';
-        }
-    }
-
-    GL_CALL(glDetachShader, m_ShaderProgram, vShader);
-    GL_CALL(glDetachShader, m_ShaderProgram, fShader);
-
-    GL_CALL(glDeleteShader, vShader);
-    GL_CALL(glDeleteShader, fShader);
+    m_ShaderProgram[0] = InitDefaultShader();
 
     m_UBOData = GL_CALL_REINTERPRET_CAST_RETURN_VALUE(glm::mat4*, glMapNamedBufferRange, m_UBO, 0, sizeof(glm::mat4), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
+
+    m_ShaderProgram[1] = InitSkyboxShader();
+    GL_CALL(glBindVertexArray, m_VAO[2]);
+    GL_CALL(glBindBuffer, GL_ARRAY_BUFFER, m_VBO[2]);
+    GL_CALL(glBufferData, GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+    GL_CALL(glBindBuffer, GL_ELEMENT_ARRAY_BUFFER, m_IBO[2]);
+    GL_CALL(glBufferData, GL_ELEMENT_ARRAY_BUFFER, sizeof(skyboxIndices), &skyboxIndices, GL_STATIC_DRAW);
+    GL_CALL(glVertexAttribPointer, 0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    GL_CALL(glEnableVertexAttribArray, 0);
+    GL_CALL(glBindBuffer, GL_ARRAY_BUFFER, 0);
+    GL_CALL(glBindVertexArray, 0);
+    GL_CALL(glBindBuffer, GL_ELEMENT_ARRAY_BUFFER, 0);
+    std::string skyboxDir = "../../res/DesertSkybox/";
+    std::string facesCubemap[6] =
+    {
+        "Right.jpg",
+        "Left.jpg",
+        "Up.jpg",
+        "Down.jpg",
+        "Front.jpg",
+        "Back.jpg"
+    };
+    GL_CALL(glGenTextures, 1, &m_Texture);
+    GL_CALL(glBindTexture, GL_TEXTURE_CUBE_MAP, m_Texture);
+    GL_CALL(glTexParameteri, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    GL_CALL(glTexParameteri, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    // These are very important to prevent seams
+    GL_CALL(glTexParameteri, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    GL_CALL(glTexParameteri, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    GL_CALL(glTexParameteri, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    //GL_CALL(glEnable, GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    for (unsigned int i = 0; i < 6; ++i) {
+        int width, height, nrChannels;
+        unsigned char* data = stbi_load((skyboxDir + facesCubemap[i]).c_str(), &width, &height, &nrChannels, 0);
+        if (data) {
+            stbi_set_flip_vertically_on_load(false);
+            GL_CALL(glTexImage2D, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        } else
+            std::cout << "Failed to load texture: " << facesCubemap[i] << std::endl;
+        stbi_image_free(data);
+    }
 
     return true;
 }
@@ -380,7 +478,7 @@ void Renderer::Render()
 {
     GL_CALL(glClear, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    GL_CALL(glUseProgram, m_ShaderProgram);
+    GL_CALL(glUseProgram, m_ShaderProgram[0]);
 
     GL_CALL(glBindBufferBase, GL_UNIFORM_BUFFER, 0, m_UBO);
     for (int i = 0; i < 2; ++i) {
@@ -391,6 +489,27 @@ void Renderer::Render()
     GL_CALL(glBindBufferBase, GL_UNIFORM_BUFFER, 0, 0);
 
     GL_CALL(glUseProgram, 0);
+
+    GL_CALL(glDepthFunc, GL_LEQUAL);
+    GL_CALL(glUseProgram, m_ShaderProgram[1]);
+    
+    m_SkyboxInfo.view = glm::mat4(1.0f);
+    m_SkyboxInfo.projection = glm::mat4(1.0f);
+    m_SkyboxInfo.view = glm::mat4(glm::mat3(glm::lookAt(m_Camera->GetPosition(), m_Camera->GetPosition() + m_Camera->GetDirection(), m_Camera->GetUp())));
+    m_SkyboxInfo.projection = glm::perspective(glm::radians(45.0f), (float)m_ViewportWidth / m_ViewportHeight, 0.1f, 100.0f);
+    GLint viewLocation = GL_CALL(glGetUniformLocation, m_ShaderProgram[1], "view");
+    GLint projectionLocation = GL_CALL(glGetUniformLocation, m_ShaderProgram[1], "projection");
+    GL_CALL(glUniformMatrix4fv, viewLocation, 1, GL_FALSE, glm::value_ptr(m_SkyboxInfo.view));
+    GL_CALL(glUniformMatrix4fv, projectionLocation, 1, GL_FALSE, glm::value_ptr(m_SkyboxInfo.projection));
+
+    GL_CALL(glBindVertexArray, m_VAO[2]);
+    GL_CALL(glActiveTexture, GL_TEXTURE0);
+    GL_CALL(glBindTexture, GL_TEXTURE_CUBE_MAP, m_Texture);
+    GL_CALL(glDrawElements, GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+    GL_CALL(glBindVertexArray, 0);
+    GL_CALL(glUseProgram, 0);
+    GL_CALL(glDepthFunc, GL_LESS);
+
 }
 
 void Renderer::Cleanup()
@@ -399,14 +518,16 @@ void Renderer::Cleanup()
 
     GL_CALL(glUnmapNamedBuffer, m_UBO);
 
-    GL_CALL(glDeleteBuffers, 2, m_VBO);
-    GL_CALL(glDeleteBuffers, 2, m_IBO);
+    GL_CALL(glDeleteBuffers, 3, m_VBO);
+    GL_CALL(glDeleteBuffers, 3, m_IBO);
     GL_CALL(glDeleteBuffers, 1, &m_UBO);
 
-    GL_CALL(glDeleteVertexArrays, 2, m_VAO);
+    GL_CALL(glDeleteVertexArrays, 3, m_VAO);
 
-    GL_CALL(glDeleteProgram, m_ShaderProgram);
+    GL_CALL(glDeleteProgram, m_ShaderProgram[0]);
+    GL_CALL(glDeleteProgram, m_ShaderProgram[1]);
 
+    GL_CALL(glDeleteTextures, 1, &m_Texture);
 }
 
 void Renderer::UpdateViewport(uint32_t width, uint32_t height)
