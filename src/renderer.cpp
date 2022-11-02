@@ -309,9 +309,10 @@ void main()
 {
     vec4 pos = projection * view * vec4(aPos, 1.0f);
     // Having z equal w will always result in a depth of 1.0f
-    gl_Position = vec4(pos.x, pos.y, pos.w, pos.w);
+    //gl_Position = vec4(pos.x, pos.y, pos.w, pos.w);
+    gl_Position = vec4(pos.x, -pos.y, 1.0f, 1.0f);
     // We want to flip the z axis due to the different coordinate systems (left hand vs right hand)
-    texCoords = vec3(aPos.x, aPos.y, -aPos.z);
+    texCoords = vec3(aPos.x, -aPos.y, -aPos.z);
 })";
     char const* const fragmentSource = R"(#version 330 core
 out vec4 FragColor;
@@ -444,12 +445,12 @@ bool Renderer::Initialize()
     std::string skyboxDir = "../../res/DesertSkybox/";
     std::string facesCubemap[6] =
     {
-        "Right.jpg",
-        "Left.jpg",
-        "Up.jpg",
-        "Down.jpg",
-        "Front.jpg",
-        "Back.jpg"
+        "Right.png",
+        "Left.png",
+        "Up.png",
+        "Down.png",
+        "Front.png",
+        "Back.png"
     };
     GL_CALL(glGenTextures, 1, &m_Texture);
     GL_CALL(glBindTexture, GL_TEXTURE_CUBE_MAP, m_Texture);
@@ -459,13 +460,13 @@ bool Renderer::Initialize()
     GL_CALL(glTexParameteri, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     GL_CALL(glTexParameteri, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     GL_CALL(glTexParameteri, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    //GL_CALL(glEnable, GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    GL_CALL(glEnable, GL_TEXTURE_CUBE_MAP_SEAMLESS);
     for (unsigned int i = 0; i < 6; ++i) {
         int width, height, nrChannels;
         unsigned char* data = stbi_load((skyboxDir + facesCubemap[i]).c_str(), &width, &height, &nrChannels, 0);
         if (data) {
             stbi_set_flip_vertically_on_load(false);
-            GL_CALL(glTexImage2D, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            GL_CALL(glTexImage2D, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         } else
             std::cout << "Failed to load texture: " << facesCubemap[i] << std::endl;
         stbi_image_free(data);
@@ -495,7 +496,7 @@ void Renderer::Render()
     
     m_SkyboxInfo.view = glm::mat4(1.0f);
     m_SkyboxInfo.projection = glm::mat4(1.0f);
-    m_SkyboxInfo.view = glm::mat4(glm::mat3(glm::lookAt(m_Camera->GetPosition(), m_Camera->GetPosition() + m_Camera->GetDirection(), m_Camera->GetUp())));
+    m_SkyboxInfo.view = glm::mat4(glm::mat3(glm::lookAt(m_Camera->GetPosition(), m_Camera->GetPosition() - m_Camera->GetDirection(), m_Camera->GetUp())));
     m_SkyboxInfo.projection = glm::perspective(glm::radians(45.0f), (float)m_ViewportWidth / m_ViewportHeight, 0.1f, 100.0f);
     GLint viewLocation = GL_CALL(glGetUniformLocation, m_ShaderProgram[1], "view");
     GLint projectionLocation = GL_CALL(glGetUniformLocation, m_ShaderProgram[1], "projection");
@@ -505,7 +506,7 @@ void Renderer::Render()
     GL_CALL(glBindVertexArray, m_VAO[2]);
     GL_CALL(glActiveTexture, GL_TEXTURE0);
     GL_CALL(glBindTexture, GL_TEXTURE_CUBE_MAP, m_Texture);
-    GL_CALL(glDrawElements, GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+    GL_CALL(glDrawElements, GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
     GL_CALL(glBindVertexArray, 0);
     GL_CALL(glUseProgram, 0);
     GL_CALL(glDepthFunc, GL_LESS);
