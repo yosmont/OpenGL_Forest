@@ -17,6 +17,14 @@ struct SkyboxInfo
     glm::mat4 projection;
 };
 
+struct STBIImgInfo
+{
+    int width;
+    int height;
+    int nrChannels;
+    unsigned char* data;
+};
+
 class Renderer
 {
 public:

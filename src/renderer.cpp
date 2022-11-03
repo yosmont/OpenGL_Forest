@@ -56,7 +56,22 @@ unsigned int skyboxIndices[] =
     6, 2, 3
 };
 
-void LoadDesert(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f> *vertices) {
+STBIImgInfo LoadImg(std::string dirpath, std::string filename)
+{
+    STBIImgInfo info;
+    info.data = stbi_load((dirpath + filename).c_str(), &(info.width), &(info.height), &(info.nrChannels), 0);
+    if (info.data) {
+        stbi_set_flip_vertically_on_load(false);
+        std::cout << "texture loaded: " << filename << std::endl;
+        std::cout << filename << " size: " << info.width << " * " << info.height << std::endl;
+    }
+    else
+        std::cout << "Failed to load texture: " << filename << std::endl;
+    return info;
+}
+
+void LoadDesert(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f> *vertices)
+{
     //load obj:
     tinyobj::ObjReader desert = LoadObjFile("../../res/desert.obj");
     std::cout << "desert load" << std::endl;
@@ -67,22 +82,6 @@ void LoadDesert(std::vector<int> *indices, std::vector<VertexDataPosition3fColor
     std::cout << "desert number of normals: " << desert.GetAttrib().normals.size() << std::endl;
     std::cout << "desert number of texcoords: " << desert.GetAttrib().texcoords.size() << std::endl;
     //init buffer:
-    /*
-    for (int i = 0; i < desert.GetShapes()[0].mesh.indices.size(); ++i) {
-        indices->push_back(i);
-        vertices->push_back(VertexDataPosition3fColor3f {
-            glm::vec3 {
-                desert.GetAttrib().GetVertices()[3 * desert.GetShapes()[0].mesh.indices[i].vertex_index],
-                desert.GetAttrib().GetVertices()[3 * desert.GetShapes()[0].mesh.indices[i].vertex_index + 1],
-                desert.GetAttrib().GetVertices()[3 * desert.GetShapes()[0].mesh.indices[i].vertex_index + 2]
-            }, glm::vec3 {
-                0.31,
-                0.34,
-                0.04
-            }
-        });
-    }
-    */
     for (std::vector<tinyobj::index_t>::const_iterator i = desert.GetShapes()[0].mesh.indices.begin(); i != desert.GetShapes()[0].mesh.indices.end(); ++i)
         indices->push_back(i->vertex_index);
     for (std::vector<tinyobj::real_t>::const_iterator v = desert.GetAttrib().GetVertices().begin(); v != desert.GetAttrib().GetVertices().end(); v += 3)
@@ -99,9 +98,8 @@ void LoadDesert(std::vector<int> *indices, std::vector<VertexDataPosition3fColor
         });
 }
 
-void LoadPalm(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f> *vertices) {
-    //load transfoPalm:
-    //std::future<std::vector<glm::vec4>> loader = std::async(LoadTransfoFile, "../../res/palmTransfo.txt");
+void LoadPalm(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f> *vertices)
+{
     //load obj:
     tinyobj::ObjReader palm = LoadObjFile("../../res/palm.obj");
     int palmVSize = palm.GetAttrib().GetVertices().size();
@@ -306,8 +304,7 @@ void main()
 {
     vec4 pos = projection * view * vec4(aPos, 1.0f);
     // Having z equal w will always result in a depth of 1.0f
-    //gl_Position = vec4(pos.x, pos.y, pos.w, pos.w);
-    gl_Position = vec4(pos.x, -pos.y, 1.0f, 1.0f);
+    gl_Position = vec4(pos.x, -pos.y, pos.w, pos.w);
     // We want to flip the z axis due to the different coordinate systems (left hand vs right hand)
     texCoords = vec3(aPos.x, -aPos.y, -aPos.z);
 })";
@@ -390,6 +387,19 @@ bool Renderer::Initialize()
     //adding all the palm to the buffer
     loader[1] = std::async(LoadPalm, &(indices[1]), &(vertices[1]));
     std::future<std::vector<glm::vec4>> loaderTransfo = std::async(LoadTransfoFile, "../../res/palmTransfo.txt");
+    std::string skyboxDir = "../../res/DesertSkybox/";
+    std::string facesCubemap[6] = {
+        "Right.png",
+        "Left.png",
+        "Up.png",
+        "Down.png",
+        "Front.png",
+        "Back.png"
+    };
+    std::future<STBIImgInfo> loaderTexture[6];
+    for (unsigned int i = 0; i < 6; ++i) {
+        loaderTexture[i] = std::async(LoadImg, skyboxDir, facesCubemap[i]);
+    }
     m_TransfoPalm = loaderTransfo.get();
     std::cout << "transfoPalm size: " << m_TransfoPalm.size() << std::endl;
     loader[0].wait();
@@ -444,16 +454,6 @@ bool Renderer::Initialize()
     GL_CALL(glBindBuffer, GL_ARRAY_BUFFER, 0);
     GL_CALL(glBindVertexArray, 0);
     GL_CALL(glBindBuffer, GL_ELEMENT_ARRAY_BUFFER, 0);
-    std::string skyboxDir = "../../res/DesertSkybox/";
-    std::string facesCubemap[6] =
-    {
-        "Right.png",
-        "Left.png",
-        "Up.png",
-        "Down.png",
-        "Front.png",
-        "Back.png"
-    };
     GL_CALL(glGenTextures, 1, &m_Texture);
     GL_CALL(glBindTexture, GL_TEXTURE_CUBE_MAP, m_Texture);
     GL_CALL(glTexParameteri, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -464,14 +464,11 @@ bool Renderer::Initialize()
     GL_CALL(glTexParameteri, GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     GL_CALL(glEnable, GL_TEXTURE_CUBE_MAP_SEAMLESS);
     for (unsigned int i = 0; i < 6; ++i) {
-        int width, height, nrChannels;
-        unsigned char* data = stbi_load((skyboxDir + facesCubemap[i]).c_str(), &width, &height, &nrChannels, 0);
-        if (data) {
-            stbi_set_flip_vertically_on_load(false);
-            GL_CALL(glTexImage2D, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        } else
-            std::cout << "Failed to load texture: " << facesCubemap[i] << std::endl;
-        stbi_image_free(data);
+        STBIImgInfo info = loaderTexture[i].get();
+        if (info.data) {
+            GL_CALL(glTexImage2D, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, info.width, info.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, info.data);
+        }
+        stbi_image_free(info.data);
     }
 
     return true;
