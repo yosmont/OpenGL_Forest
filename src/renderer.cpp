@@ -102,10 +102,9 @@ void LoadPalm(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f
 {
     //load obj:
     tinyobj::ObjReader palm = LoadObjFile("../../res/palm.obj");
-    int palmVSize = palm.GetAttrib().GetVertices().size();
     std::cout << "palm load" << std::endl;
     std::cout << "palm number of shape: " << palm.GetShapes().size() << std::endl;
-    std::cout << "palm number of vertices: " << palmVSize << std::endl;
+    std::cout << "palm number of vertices: " << palm.GetAttrib().GetVertices().size() << std::endl;
     std::cout << "palm number of indices: " << palm.GetShapes()[0].mesh.indices.size() << std::endl;
     std::cout << "palm number of colors: " << palm.GetAttrib().colors.size() << std::endl;
     std::cout << "palm number of normals: " << palm.GetAttrib().normals.size() << std::endl;
