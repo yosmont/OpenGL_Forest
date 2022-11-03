@@ -113,27 +113,6 @@ void LoadPalm(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f
     std::cout << "palm number of normals: " << palm.GetAttrib().normals.size() << std::endl;
     std::cout << "palm number of texcoords: " << palm.GetAttrib().texcoords.size() << std::endl;
     //init buffer:
-    /*std::vector<glm::vec4> transfoPalm = loader.get();
-    std::cout << "transfoPalm size: " << transfoPalm.size() << std::endl;
-    int j = 0;
-    //std::srand(std::time(nullptr));
-    for (std::vector<glm::vec4>::const_iterator t = transfoPalm.begin(); t != transfoPalm.end(); ++t) {
-        for (std::vector<tinyobj::index_t>::const_iterator i = palm.GetShapes()[0].mesh.indices.begin(); i != palm.GetShapes()[0].mesh.indices.end(); ++i)
-            indices->push_back(i->vertex_index + (palmVSize * j));
-        for (std::vector<tinyobj::real_t>::const_iterator v = palm.GetAttrib().GetVertices().begin(); v != palm.GetAttrib().GetVertices().end(); v += 3)
-            vertices->push_back(VertexDataPosition3fColor3f{
-                glm::vec3 {
-                    (*v) + t->x,
-                    (*(v + 1)) + t->y,
-                    (*(v + 2)) + t->z
-                }, glm::vec3 {
-                    0.24,
-                    0.18,
-                    0.01
-                }
-            });
-        ++j;
-    }*/
     for (std::vector<tinyobj::index_t>::const_iterator i = palm.GetShapes()[0].mesh.indices.begin(); i != palm.GetShapes()[0].mesh.indices.end(); ++i)
         indices->push_back(i->vertex_index);
     for (std::vector<tinyobj::real_t>::const_iterator v = palm.GetAttrib().GetVertices().begin(); v != palm.GetAttrib().GetVertices().end(); v += 3)
