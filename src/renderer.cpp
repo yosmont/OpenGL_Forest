@@ -67,10 +67,26 @@ void LoadDesert(std::vector<int> *indices, std::vector<VertexDataPosition3fColor
     std::cout << "desert number of normals: " << desert.GetAttrib().normals.size() << std::endl;
     std::cout << "desert number of texcoords: " << desert.GetAttrib().texcoords.size() << std::endl;
     //init buffer:
+    /*
+    for (int i = 0; i < desert.GetShapes()[0].mesh.indices.size(); ++i) {
+        indices->push_back(i);
+        vertices->push_back(VertexDataPosition3fColor3f {
+            glm::vec3 {
+                desert.GetAttrib().GetVertices()[3 * desert.GetShapes()[0].mesh.indices[i].vertex_index],
+                desert.GetAttrib().GetVertices()[3 * desert.GetShapes()[0].mesh.indices[i].vertex_index + 1],
+                desert.GetAttrib().GetVertices()[3 * desert.GetShapes()[0].mesh.indices[i].vertex_index + 2]
+            }, glm::vec3 {
+                0.31,
+                0.34,
+                0.04
+            }
+        });
+    }
+    */
     for (std::vector<tinyobj::index_t>::const_iterator i = desert.GetShapes()[0].mesh.indices.begin(); i != desert.GetShapes()[0].mesh.indices.end(); ++i)
         indices->push_back(i->vertex_index);
     for (std::vector<tinyobj::real_t>::const_iterator v = desert.GetAttrib().GetVertices().begin(); v != desert.GetAttrib().GetVertices().end(); v += 3)
-        vertices->push_back(VertexDataPosition3fColor3f{
+        vertices->push_back(VertexDataPosition3fColor3f {
             glm::vec3 {
                 *v,
                 *(v + 1),
@@ -80,12 +96,12 @@ void LoadDesert(std::vector<int> *indices, std::vector<VertexDataPosition3fColor
                 0.34,
                 0.04
             }
-            });
+        });
 }
 
 void LoadPalm(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f> *vertices) {
     //load transfoPalm:
-    std::future<std::vector<glm::vec4>> loader = std::async(LoadTransfoFile, "../../res/palmTransfo.txt");
+    //std::future<std::vector<glm::vec4>> loader = std::async(LoadTransfoFile, "../../res/palmTransfo.txt");
     //load obj:
     tinyobj::ObjReader palm = LoadObjFile("../../res/palm.obj");
     int palmVSize = palm.GetAttrib().GetVertices().size();
@@ -97,39 +113,41 @@ void LoadPalm(std::vector<int> *indices, std::vector<VertexDataPosition3fColor3f
     std::cout << "palm number of normals: " << palm.GetAttrib().normals.size() << std::endl;
     std::cout << "palm number of texcoords: " << palm.GetAttrib().texcoords.size() << std::endl;
     //init buffer:
-    std::vector<glm::vec4> transfoPalm = loader.get();
+    /*std::vector<glm::vec4> transfoPalm = loader.get();
     std::cout << "transfoPalm size: " << transfoPalm.size() << std::endl;
     int j = 0;
     //std::srand(std::time(nullptr));
     for (std::vector<glm::vec4>::const_iterator t = transfoPalm.begin(); t != transfoPalm.end(); ++t) {
         for (std::vector<tinyobj::index_t>::const_iterator i = palm.GetShapes()[0].mesh.indices.begin(); i != palm.GetShapes()[0].mesh.indices.end(); ++i)
             indices->push_back(i->vertex_index + (palmVSize * j));
-        for (int i = 0; i < palmVSize; i += 3)
+        for (std::vector<tinyobj::real_t>::const_iterator v = palm.GetAttrib().GetVertices().begin(); v != palm.GetAttrib().GetVertices().end(); v += 3)
             vertices->push_back(VertexDataPosition3fColor3f{
                 glm::vec3 {
-                    palm.GetAttrib().vertices[i] + t->x,
-                    palm.GetAttrib().vertices[i + 1] + t->y,
-                    palm.GetAttrib().vertices[i + 2] + t->z
+                    (*v) + t->x,
+                    (*(v + 1)) + t->y,
+                    (*(v + 2)) + t->z
                 }, glm::vec3 {
                     0.24,
                     0.18,
                     0.01
                 }
             });
-        /*for (std::vector<tinyobj::real_t>::const_iterator v = palm.GetAttrib().GetVertices().begin(); v != palm.GetAttrib().GetVertices().end(); v += 3)
-            vertices->push_back(VertexDataPosition3fColor3f{
-                glm::vec3 {
-                    *v + t->x,
-                    *(v + 1) + t->y,
-                    *(v + 2) + t->z
-                }, glm::vec3 {
-                    0.24,
-                    0.18,
-                    0.01
-                }
-                });*/
         ++j;
-    }
+    }*/
+    for (std::vector<tinyobj::index_t>::const_iterator i = palm.GetShapes()[0].mesh.indices.begin(); i != palm.GetShapes()[0].mesh.indices.end(); ++i)
+        indices->push_back(i->vertex_index);
+    for (std::vector<tinyobj::real_t>::const_iterator v = palm.GetAttrib().GetVertices().begin(); v != palm.GetAttrib().GetVertices().end(); v += 3)
+        vertices->push_back(VertexDataPosition3fColor3f{
+            glm::vec3 {
+                (*v),
+                (*(v + 1)),
+                (*(v + 2))
+            }, glm::vec3 {
+                0.24,
+                0.18,
+                0.01
+            }
+        });
 }
 
 void GenerateSphereMesh(std::vector<VertexDataPosition3fColor3f>& vertices, std::vector<uint16_t>& indices, uint16_t sphereStackCount, uint16_t sphereSectorCount, glm::vec3 sphereCenter, float sphereRadius)
@@ -347,11 +365,13 @@ layout(std140, binding = 0) uniform Matrix
 {
     mat4 modelViewProjection;
 };
+uniform vec3 transfoModif;
 
 void main()
 {
     color = inColor;
-    gl_Position = modelViewProjection*vec4(inWorldPos, 1.);
+    //gl_Position = modelViewProjection*vec4(inWorldPos, 1.);
+    gl_Position = modelViewProjection*vec4(inWorldPos.x + transfoModif.x, inWorldPos.y + transfoModif.y, inWorldPos.z + transfoModif.z, 1.);
 })";
     char const* const fragmentSource = R"(#version 450 core
 
@@ -390,6 +410,9 @@ bool Renderer::Initialize()
     loader[0] = std::async(LoadDesert, &(indices[0]), &(vertices[0]));
     //adding all the palm to the buffer
     loader[1] = std::async(LoadPalm, &(indices[1]), &(vertices[1]));
+    std::future<std::vector<glm::vec4>> loaderTransfo = std::async(LoadTransfoFile, "../../res/palmTransfo.txt");
+    m_TransfoPalm = loaderTransfo.get();
+    std::cout << "transfoPalm size: " << m_TransfoPalm.size() << std::endl;
     loader[0].wait();
     loader[1].wait();
 
@@ -482,9 +505,20 @@ void Renderer::Render()
     GL_CALL(glUseProgram, m_ShaderProgram[0]);
 
     GL_CALL(glBindBufferBase, GL_UNIFORM_BUFFER, 0, m_UBO);
-    for (int i = 0; i < 2; ++i) {
-        GL_CALL(glBindVertexArray, m_VAO[i]);
-        GL_CALL(glDrawElements, GL_TRIANGLES, m_IndexCount[i], GL_UNSIGNED_INT, nullptr);
+
+    glm::vec4 tmp(0, 0, 0, 0);
+    GLint transfoModifLocation = GL_CALL(glGetUniformLocation, m_ShaderProgram[0], "transfoModif");
+    GL_CALL(glUniform3f, transfoModifLocation, 0, 0, 0);
+
+    GL_CALL(glBindVertexArray, m_VAO[0]);
+    GL_CALL(glDrawElements, GL_TRIANGLES, m_IndexCount[0], GL_UNSIGNED_INT, nullptr);
+    GL_CALL(glBindVertexArray, 0);
+    for (int i = 0; i < m_TransfoPalm.size(); ++i) {
+        GLint transfoModifLocation = GL_CALL(glGetUniformLocation, m_ShaderProgram[0], "transfoModif");
+        GL_CALL(glUniform3f, transfoModifLocation, m_TransfoPalm[i].x, m_TransfoPalm[i].y, m_TransfoPalm[i].z);
+
+        GL_CALL(glBindVertexArray, m_VAO[1]);
+        GL_CALL(glDrawElements, GL_TRIANGLES, m_IndexCount[1], GL_UNSIGNED_INT, nullptr);
         GL_CALL(glBindVertexArray, 0);
     }
     GL_CALL(glBindBufferBase, GL_UNIFORM_BUFFER, 0, 0);

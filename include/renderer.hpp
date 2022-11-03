@@ -56,6 +56,8 @@ private:
 
     SkyboxInfo m_SkyboxInfo;
 
+    std::vector<glm::vec4> m_TransfoPalm;
+
     std::shared_ptr<Camera> m_Camera;
     uint32_t m_ViewportWidth, m_ViewportHeight;
 };
